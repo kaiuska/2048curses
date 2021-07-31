@@ -64,10 +64,6 @@ void draw_board(WINDOW* win, int values[][4]);
 void draw_values(WINDOW* win, int values[][4], int use_color);
 
 int tilt(int values[][4], int direction);
-int tilt_up(int values[][4]);
-int tilt_down(int values[][4]);
-int tilt_left(int values[][4]);
-int tilt_right(int values[][4]);
 
 void add_random(int values[][4], int seed);
 int can_move(int values[][4]);
@@ -414,8 +410,10 @@ void rotate(int ar[][4], int n)
     }
 }
 
+// slide and merge values
 int tilt(int values[][4], int direction)
 {
+    // rotate board so upward tilt handles tilt in that direction
     rotate(values, direction);
 
     int modified = 0;
@@ -444,125 +442,7 @@ int tilt(int values[][4], int direction)
             }
         }
     }
+    // rotate board back into original orientation
     rotate(values, 4 - direction);
     return modified;
 }
-
-// slide tiles upward
-int tilt_up(int values[][4])
-{
-    int modified = 0;
-    int merges[4][4] = {};
-    for (int j = 0; j < 4; j++) {
-        for (int i = 0; i < 4; i++) {
-            if (values[i][j] != 0) {
-                for (int p = j; p > 0; p--) {
-                    //move value up
-                    if (values[i][p-1] == 0) {
-                        values[i][p-1] = values[i][p];
-                        values[i][p] = 0;
-                        modified = 1;
-                    // merge value with tile above it
-                    } else if (merges[i][p-1] == 0 && values[i][p-1] == values[i][p]) {
-                        values[i][p-1] += values[i][p];
-                        values[i][p] = 0;
-                        merges[i][p-1] = 1;
-                        modified = 1;
-                        break;
-                    // if the tile above has been merged, move on to the next cell
-                    } else if (merges[i][p-1] != 0) {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    return modified;
-}
-
-
-int tilt_down(int values[][4]) 
-{
-    int modified = 0;
-    int merges[4][4] = {};
-    for (int j = 3; j >= 0; j--) {
-        for (int i = 0; i < 4; i++) {
-            if (values[i][j] != 0) {
-                for (int p = j; p < 3; p++) {
-                    if (values[i][p+1] == 0) {
-                        values[i][p+1] = values[i][p];
-                        values[i][p] = 0;
-                        modified = 1;
-                    } else if (merges[i][p+1] == 0 && values[i][p+1] == values[i][p]) {
-                        values[i][p+1] += values[i][p];
-                        values[i][p] = 0;
-                        merges[i][p+1] = 1;
-                        modified = 1;
-                        break;
-                    } else if (merges[i][p+1] != 0) {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    return modified;
-}
-
-int tilt_left(int values[][4]) 
-{
-    int modified = 0;
-    int merges[4][4] = {};
-    for (int i = 0; i < 4; i++) {
-        for (int j = 3; j >= 0; j--) {
-            if (values[i][j] != 0) {
-                for (int p = i; p > 0; p--) {
-                    if (values[p-1][j] == 0) {
-                        values[p-1][j] = values[p][j];
-                        values[p][j] = 0;
-                        modified = 1;
-                    } else if (merges[p-1][j] == 0 && values[p-1][j] == values[p][j]) {
-                        values[p-1][j] += values[p][j];
-                        values[p][j] = 0;
-                        merges[p-1][j] = 1;
-                        modified = 1;
-                        break;
-                    } else if (merges[p-1][j] != 0) {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    return modified;
-}
-
-int tilt_right(int values[][4])
-{
-    int modified = 0;
-    int merges[4][4] = {};
-    for (int i = 3; i >= 0; i--) {
-        for (int j = 3; j >= 0; j--) {
-            if (values[i][j] != 0) {
-                for (int p = i; p < 3; p++) {
-                    if (values[p+1][j] == 0) {
-                        values[p+1][j] = values[p][j];
-                        values[p][j] = 0;
-                        modified = 1;
-                    } else if (merges[p+1][j] == 0 && values[p+1][j] == values[p][j]) {
-                        values[p+1][j] += values[p][j];
-                        values[p][j] = 0;
-                        merges[p+1][j] = 1;
-                        modified = 1;
-                        break;
-                    } else if (merges[p+1][j] != 0) {
-                        break;
-                    }
-                }
-            }
-        }
-    }
-    return modified;
-}
-
-
