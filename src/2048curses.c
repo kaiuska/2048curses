@@ -3,14 +3,14 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include <stdio.h>
-#include <unistd.h>
 #include <time.h>
-#include "2048curses.h"
 
+#define HIST_SIZE   16 
 
-#define HIST_SIZE 16
-
+#define UP          0
+#define LEFT        3
+#define DOWN        2
+#define RIGHT       1
 
 // from curses.h
 #define COLOR_BLACK	    0
@@ -27,12 +27,6 @@
 #define COLOR_LIGHTBLUE 10
 #define COLOR_PINK      11
 #define COLOR_GOLD      12
-
-#define UP      0
-#define LEFT    3
-#define DOWN    2
-#define RIGHT   1
-
 
 
 const char *title = 
@@ -59,7 +53,7 @@ NULL
 };
 
 
-void draw_menu(WINDOW* win);
+void draw_menu(WINDOW* win, int turn_count);
 void draw_board(WINDOW* win, int values[][4]);
 void draw_values(WINDOW* win, int values[][4], int use_color);
 
@@ -87,7 +81,7 @@ int main(void)
 
     WINDOW* titlewin = newwin(1, cols, 0, 1);
     WINDOW* gamewin = newwin(17, cols, 1, 1);
-    WINDOW* infowin = newwin(3, cols, 18, 0);
+    WINDOW* infowin = newwin(5, cols, 18, 0);
 
     curs_set(0);
     cbreak(); 
@@ -95,6 +89,7 @@ int main(void)
     keypad(gamewin, TRUE);
     
     int values[4][4] = {};
+    int turn_count = 1;
 
     int history[HIST_SIZE][4][4] = {};
     int history_top = 0;
@@ -131,8 +126,7 @@ int main(void)
         mvwaddstr(titlewin, 0, 0, title);
         wrefresh(titlewin);
 
-
-        draw_menu(infowin);
+        draw_menu(infowin, turn_count);
         wrefresh(infowin);
 
         ch = wgetch(gamewin);
@@ -154,22 +148,23 @@ int main(void)
                 switch(ch) {
                     case KEY_UP:
                         modified = tilt(values, UP);
-                        //modified = tilt_up(values);
+                        turn_count++;
                         break;
                     case KEY_DOWN:
                         modified = tilt(values, DOWN);
-                        //modified = tilt_down(values);
+                        turn_count++;
                         break;
                     case KEY_LEFT:
                         modified = tilt(values, LEFT);
-                        //modified = tilt_left(values);
+                        turn_count++;
                         break;
                     case KEY_RIGHT:
                         modified = tilt(values, RIGHT);
-                        //modified = tilt_right(values);
+                        turn_count++;
                         break;
                     case 'u':
                         if (history_count > 0) {
+                            turn_count--;
                             history_count--;
                             history_top = (history_top + HIST_SIZE - 1) % HIST_SIZE;
                             copy_values(values, history[history_top]);
@@ -177,6 +172,7 @@ int main(void)
                         break;
                     case 'r':
                         reset(values, history); 
+                        turn_count = 1;
                         reset_board = 1;
                         history_top = 0;
                         history_count = 0;
@@ -257,8 +253,10 @@ int init_color_pairs()
 }
 
 // draw the menu
-void draw_menu(WINDOW* win)
+void draw_menu(WINDOW* win, int turn_count)
 {
+    static char turn_count_str[6] = "";
+
     wmove(win, 0, 8);
     waddch(win, '('); waddch(win, ACS_LARROW); waddch(win, ')');
     waddstr(win, " left   ");
@@ -271,12 +269,14 @@ void draw_menu(WINDOW* win)
     waddstr(win, " down ");
     mvwaddstr(win, 2, 8, "(u) undo   (r) reset");
     mvwaddstr(win, 3, 8, "(u) undo   (r) reset");
+
+    sprintf(turn_count_str, "turn: %d", turn_count);
+    mvwaddstr(win, 4, 14, turn_count_str);
 }
 
 // draw the colored tiles and cell numbers over top of the gameboard
 void draw_values(WINDOW* win, int values[][4], int use_color) 
 {
-
     for (size_t i = 0; i < 4; i++) {
         for (size_t j = 0; j < 4; j++) {
 
@@ -377,6 +377,7 @@ int can_move(int values[][4])
     return 1;
 }
 
+// check if board is full
 int board_full(int values[][4]) 
 {
     for (int i = 0; i < 4; i++) {
@@ -393,6 +394,7 @@ int board_full(int values[][4])
 void rotate(int ar[][4], int n)
 {
     while (n-- > 0) {
+        // transpose array
         for (int i = 0; i < 4; i++) {
             for (int j = i; j < 4; j++) {
                 int tmp = ar[j][i];
@@ -400,6 +402,7 @@ void rotate(int ar[][4], int n)
                 ar[i][j] = tmp;
             }
         }
+        // flip array along x axis
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 2; j++) {
                 int tmp = ar[i][j];
