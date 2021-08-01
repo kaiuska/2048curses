@@ -8,9 +8,9 @@
 #define HIST_SIZE   16 
 
 #define UP          0
-#define LEFT        3
-#define DOWN        2
 #define RIGHT       1
+#define DOWN        2
+#define LEFT        3
 
 // from curses.h
 #define COLOR_BLACK	    0
@@ -88,7 +88,12 @@ int main(void)
     noecho(); 
     keypad(gamewin, TRUE);
     
-    int values[4][4] = {};
+    int values[4][4] = {
+        {0, 0, 0, 0},
+        {0, 0, 0, 0},
+        {0, 0, 0, 0},
+        {0, 0, 0, 0},
+    };
     int turn_count = 1;
 
     int history[HIST_SIZE][4][4] = {};
@@ -258,20 +263,15 @@ void draw_menu(WINDOW* win, int turn_count)
     static char turn_count_str[6] = "";
 
     wmove(win, 0, 8);
-    waddch(win, '('); waddch(win, ACS_LARROW); waddch(win, ')');
-    waddstr(win, " left   ");
-    waddch(win, '('); waddch(win, ACS_RARROW); waddch(win, ')');
-    waddstr(win, " right\n");
+    waddch(win, '('); waddch(win, ACS_LARROW); waddch(win, ')'); waddstr(win, " left   ");
+    waddch(win, '('); waddch(win, ACS_RARROW); waddch(win, ')'); waddstr(win, " right\n");
     wmove(win, 1, 8);
-    waddch(win, '('); waddch(win, ACS_UARROW); waddch(win, ')');
-    waddstr(win, " up     ");
-    waddch(win, '('); waddch(win, ACS_DARROW); waddch(win, ')');
-    waddstr(win, " down ");
+    waddch(win, '('); waddch(win, ACS_UARROW); waddch(win, ')'); waddstr(win, " up     ");
+    waddch(win, '('); waddch(win, ACS_DARROW); waddch(win, ')'); waddstr(win, " down   ");
     mvwaddstr(win, 2, 8, "(u) undo   (r) reset");
-    mvwaddstr(win, 3, 8, "(u) undo   (r) reset");
 
     sprintf(turn_count_str, "turn: %d", turn_count);
-    mvwaddstr(win, 4, 14, turn_count_str);
+    mvwaddstr(win, 3, 14, turn_count_str);
 }
 
 // draw the colored tiles and cell numbers over top of the gameboard
