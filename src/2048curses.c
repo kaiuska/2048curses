@@ -297,7 +297,8 @@ void draw_values(WINDOW* win, int values[][4], int use_color)
 
                 char value_str[6];
                 sprintf(value_str,"%d", values[i][j]);
-                mvwaddstr(win, tile_y+1, tile_x+3, value_str);
+
+                mvwaddstr(win, tile_y+1, tile_x+4 - log10(values[i][j])/2, value_str);
 
                 if (use_color) {
                     wattroff(win, COLOR_PAIR(color_pair));
