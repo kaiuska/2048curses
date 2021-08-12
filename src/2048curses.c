@@ -1,11 +1,10 @@
-
 #include <curses.h>
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include <time.h>
+#include <sys/time.h>
 
-#define HIST_SIZE   16 
+#define HIST_SIZE   32
 
 #define UP          0
 #define RIGHT       1
@@ -27,7 +26,6 @@
 #define COLOR_LIGHTBLUE 10
 #define COLOR_PINK      11
 #define COLOR_GOLD      12
-
 
 const char *title = 
 "/----------| 2 0 4 8 |----------\\";
@@ -52,20 +50,21 @@ const char* gameboard[] = {
 NULL
 };
 
-
 void draw_menu(WINDOW* win, int turn_count);
 void draw_board(WINDOW* win, int values[][4]);
 void draw_values(WINDOW* win, int values[][4], int use_color);
 
 int tilt(int values[][4], int direction);
 
-void add_random(int values[][4], int seed);
+void add_random(int values[][4]);
 int can_move(int values[][4]);
 int board_full(int values[][4]);
 
 void copy_values(int dest[][4], int source[][4]);
-void reset(int values[][4], int history[][4][4]); 
+void reset(int values[][4], int history[][4][4], int *history_top, int *history_count); 
+void record_state(int values[][4], int history[][4][4], int *history_top, int *history_count);
 void rotate(int ar[][4], int n);
+int get_random_int();
 
 int init_color_pairs();
 
@@ -94,7 +93,7 @@ int main(void)
         {0, 0, 0, 0},
         {0, 0, 0, 0},
     };
-    int turn_count = 1;
+    int turn_count = 0;
 
     int history[HIST_SIZE][4][4] = {};
     int history_top = 0;
@@ -113,12 +112,13 @@ int main(void)
 
     int ch;
     int quit = 0;
-    int modified = 0;
+    int modified = 1;
     int game_over = 0;
     int reset_board = 0;
 
-    add_random(values, time(0));
-    add_random(values, time(0) + 0x2048);
+    reset(values, history, &history_top, &history_count);
+    add_random(values);
+    add_random(values);
 
     draw_board(gamewin, values);
     draw_values(gamewin, values, has_color);
@@ -136,70 +136,54 @@ int main(void)
 
         ch = wgetch(gamewin);
 
-        if (ch != 'u') {
-            copy_values(history[history_top], values);
-            history_top = (history_top + 1) % (HIST_SIZE);
-            if (history_count < HIST_SIZE) {
-                history_count++;
-            }
+        if (ch != 'u' && ch != 'q' && ch != 'r') {
+            record_state(values, history, &history_top, &history_count);
         }
 
         if(ch != ERR && ch != KEY_RESIZE) {
 
-            if (ch == 'q') {
-                quit = 1;
-                break;
-            } else if (!game_over) {
-                switch(ch) {
-                    case KEY_UP:
-                        modified = tilt(values, UP);
-                        turn_count++;
-                        break;
-                    case KEY_DOWN:
-                        modified = tilt(values, DOWN);
-                        turn_count++;
-                        break;
-                    case KEY_LEFT:
-                        modified = tilt(values, LEFT);
-                        turn_count++;
-                        break;
-                    case KEY_RIGHT:
-                        modified = tilt(values, RIGHT);
-                        turn_count++;
-                        break;
-                    case 'u':
-                        if (history_count > 0) {
-                            turn_count--;
-                            history_count--;
-                            history_top = (history_top + HIST_SIZE - 1) % HIST_SIZE;
-                            copy_values(values, history[history_top]);
-                        }
-                        break;
-                    case 'r':
-                        reset(values, history); 
-                        turn_count = 1;
-                        reset_board = 1;
-                        history_top = 0;
-                        history_count = 0;
-                        break;
-                }
+            modified = 0;
+            switch(ch) {
+                case KEY_UP:
+                    modified = tilt(values, UP);
+                    break;
+                case KEY_DOWN:
+                    modified = tilt(values, DOWN);
+                    break;
+                case KEY_LEFT:
+                    modified = tilt(values, LEFT);
+                    break;
+                case KEY_RIGHT:
+                    modified = tilt(values, RIGHT);
+                    break;
+                case 'q':
+                    quit = 1;
+                    break;
+                case 'u':
+                    if (history_count > 0 && turn_count > 0) {
+                        turn_count--;
+                        history_count--;
+                        history_top = (history_top + HIST_SIZE - 1) % HIST_SIZE;
+                        copy_values(values, history[history_top]);
+                    } 
+                    break;
+                case 'r':
+                    game_over = 0;
+                    reset(values, history, &history_top, &history_count); 
+                    add_random(values);
+                    add_random(values);
+                    turn_count = 0;
+                    break;
             }
+        }
 
-            
-            if (!board_full(values) && ch != 'u') {
-                if (reset_board) {
-                    add_random(values, time(0));
-                    add_random(values, time(0) + 0x2048);
-                    reset_board = 0;
-                } else {
-                    if (modified) {
-                        add_random(values, time(0));
-                    }
-                }
-            } else if (can_move(values)){
-                game_over = 1;
-            }
+        if (modified) {
+            turn_count++;
+            add_random(values);
+        }
 
+        if (!can_move(values)){
+            game_over = 1;
         }
 
         wclear(gamewin);
@@ -223,6 +207,30 @@ int main(void)
     return EXIT_SUCCESS;
 }
 
+// copy gameboard into history
+void record_state(int values[][4], int history[][4][4], int *history_top, int *history_count)
+{
+    if (*history_count < HIST_SIZE) {
+        (*history_count)++;
+    }
+    copy_values(history[*history_top], values);
+    *history_top = (*history_top + 1) % (HIST_SIZE);
+}
+
+// reset all values is values and history to 0
+void reset(int values[][4], int history[][4][4], int *history_top, int *history_count)
+{
+    for (int i = 0; i < HIST_SIZE; i++) {
+        for (int j = 0; j < 4; j++) {
+            memset(history[i][j], 0, 4 * sizeof(int));
+        }
+    }
+    for (int i = 0; i < 4; i++) {
+        memset(values[i], 0, 4 * sizeof(int));
+    }
+    *history_top = 0; 
+    *history_count = 0;
+}
 
 int init_color_pairs()
 {
@@ -261,7 +269,6 @@ int init_color_pairs()
 void draw_menu(WINDOW* win, int turn_count)
 {
     static char turn_count_str[6] = "";
-
     wmove(win, 0, 8);
     waddch(win, '('); waddch(win, ACS_LARROW); waddch(win, ')'); waddstr(win, " left   ");
     waddch(win, '('); waddch(win, ACS_RARROW); waddch(win, ')'); waddstr(win, " right\n");
@@ -317,24 +324,30 @@ void draw_board(WINDOW* win, int values[][4])
 }
 
 // randomly place a tile
-void add_random(int values[][4], int seed)
+void add_random(int values[][4])
 {
     int isset = 0; 
-    srand(seed);
-
-    int num = rand()%4;
+    int num = get_random_int()%4;
     num = num == 0 ? 4 : 2;
 
     if (!board_full(values)) {
         while (!isset) {
-            int x = rand()%4;
-            int y = rand()%4;
+            int x = get_random_int()%4;
+            int y = get_random_int()%4;
             if (values[x][y] == 0) {
                 values[x][y] = num;
                 isset = 1;
             }
         }
     }
+}
+
+int get_random_int()
+{
+    struct timeval t;
+    gettimeofday(&t, NULL);
+    srand(t.tv_usec);
+    return rand();
 }
 
 // copy values from source to dest 
@@ -347,35 +360,23 @@ void copy_values(int dest[][4], int source[][4])
     }
 }
 
-void reset(int values[][4], int history[][4][4])
-{
-    for (int i = 0; i < HIST_SIZE; i++) {
-        for (int j = 0; j < 4; j++) {
-            memset(history[i][j], 0, 4 * sizeof(int));
-        }
-    }
-    for (int i = 0; i < 4; i++) {
-        memset(values[i], 0, 4 * sizeof(int));
-    }
-}
-
 // test if the player can move
 int can_move(int values[][4])
 {
     if (!board_full(values)) {
-        return 0;
+        return 1;
     } else {
         for (int j = 1; j < 4; j++) {
             for (int i = 1; i < 4; i++) {
                 if (values[i-1][j] == values[i][j]) {
-                    return 0;
+                    return 1;
                 } else if (values[i][j-1] == values[i][j]) {
-                    return 0;
+                    return 1;
                 }
             }
         }
     }
-    return 1;
+    return 0;
 }
 
 // check if board is full
